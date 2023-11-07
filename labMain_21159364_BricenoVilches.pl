@@ -51,8 +51,8 @@ chatbot(ChatbotId, Name, WelcomeMessage,StartFlowId,FlowsBase, [ChatbotId, Name,
     verificarFlowsRepetidos(FlowsBase, [], [], FlowsNoDuplicados).
 
 %RF 6: TDA chatbot - modificador
-%Dom: Chatbot (list) X Flow (list) X NewChatbot (list)
-%Meta Principal: chatbotAddFlow/3
+% Dom: Chatbot (list) X Flow (list) X NewChatbot (list)
+% Meta Principal: chatbotAddFlow/3
 % Meta Secundaria: getChatbotFlow/2, verificarFlowsRepetidos/4,
 % getChatbotId/2, getChatbotName/2, getChatbotMsg/2,
 % getChatbotStartFlowId/2, NewChatbot = [ChatbotId, Name,
@@ -69,3 +69,19 @@ chatbotAddFlow(Chatbot, Flow, NewChatbot) :-
     getChatbotMsg(Chatbot, WelcomeMessage),
     getChatbotStartFlowId(Chatbot, StartFlowId),
     NewChatbot = [ChatbotId, Name, WelcomeMessage, StartFlowId,FlowsNoDuplicados].
+
+
+%RF 7: TDA system - constructor
+% Dom: Name (string) X InitialChatbotCodeLink (int) X ChatbotsBase
+% (list) X system (list)
+% Meta Principal: system/6
+% Meta Secundaria: verificarChatbotsRepetidos/4, get_time/1.
+% Predicado constructor de un sistema de chatbots. Deja registro de la
+% fecha de creación, si los chatbots dados no tienen Ids unicas da false
+% Se añade a la lista System una lista de usuarios y una lista que
+% contiene al usuario logeado
+
+system(Name, InitialChatbotCodeLink, ChatbotsBase, [Name, InitialChatbotCodeLink, [], [],FechaCreacion, ChatbotsNoDuplicados]):-
+    verificarChatbotsRepetidos(ChatbotsBase, [], [], ChatbotsNoDuplicados),
+    get_time(FechaCreacion).
+
