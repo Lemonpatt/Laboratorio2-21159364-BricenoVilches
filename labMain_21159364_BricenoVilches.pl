@@ -9,7 +9,11 @@
 %RF 2: TDA Option - constructor
 % Dom: Code (int) X Message (string) X ChatbotCodeLink (int) X
 % InitialFlowCodeLink (int) X Keywords (list) X Option (list). Meta
-% Principal: option/6 Meta Secundaria: NA.
+% Meta Principal: option/6
+% Meta Secundaria: NA.
+% Predicado constructor de una opción para flujo de un chatbot. Cada
+% opción se enlaza a un chatbot y flujo especificados por sus
+% respectivos códigos.
 
 option(Code, Message , ChatbotCodeLink, InitialFlowCodeLink, Keywords, [Code, Message, ChatbotCodeLink, InitialFlowCodeLink, Keywords]).
 
@@ -78,7 +82,7 @@ chatbotAddFlow(Chatbot, Flow, NewChatbot) :-
 % Dom: Name (string) X InitialChatbotCodeLink (int) X ChatbotsBase
 % (list) X system (list)
 % Meta Principal: system/4
-% Meta Secundaria: verificarChatbotsRepetidos/4, get_time/1.
+% Meta Secundaria: verificarChatbotsRepetidos/4, armarFechaTiempo/1.
 % Predicado constructor de un sistema de chatbots. Deja registro de la
 % fecha de creación, si los chatbots dados no tienen Ids unicas da false
 % Se añade a la lista System una lista de usuarios y una lista que
@@ -86,7 +90,8 @@ chatbotAddFlow(Chatbot, Flow, NewChatbot) :-
 
 system(Name, InitialChatbotCodeLink, ChatbotsBase, [Name, InitialChatbotCodeLink, [], [],FechaCreacion, ChatbotsNoDuplicados]):-
     verificarChatbotsRepetidos(ChatbotsBase, [], [], ChatbotsNoDuplicados),
-    get_time(FechaCreacion).
+    armarFechaTiempo(FechaCreacion).
+
 
 %RF 8: TDA system - modificador
 % Dom: System (list) X Chatbot (list) X NewSystem (list)
@@ -134,6 +139,15 @@ systemAddUser(System, Username, NewSystem):-
 %RF 10: TDA system - modificador
 % Dom: System (list) X Username (string) X NewSystem (list)
 % Meta Principal: systemLogin/3
+% Meta Secundaria: getSystemUsers/2, encontrarUser/3,
+% vacioLoggedUser/1,getSystemName/2, getSystemInitialCBLink/2,
+% getSystemChatbots/2, getSystemFechaCreacion/2, NewSystem = [Name,
+% CBLink, Users, UserEncontrado, FechaCreacion, Chatbots].
+% Predicado que busca el nombre de un usuario dentro de la lista de
+% usuarios del sistema dado y hace una instancia de este en la lista
+% de usuarios logeados, retorna false en casos donde ya haya alguien
+% logeado o no exista el usuario.
+
 systemLogin(System, Username, NewSystem):-
     getSystemUsers(System, Users),
     encontrarUser(Username, Users, UserEncontrado),
@@ -152,6 +166,11 @@ systemLogin(System, Username, NewSystem):-
 % getSystemUsers/2, actualizarUsers/4, getSystemName/2,
 % getSystemInitialCBLink/2, getSystemChatbots/2,
 % getSystemFechaCreacion/2, NewSystem = [Name, CBLink, UsersActualizada, [], FechaCreacion, Chatbots]
+% Predicado que en el caso que haya alguien logeado, lo devuelve a la
+% lista de usuarios con un posible historial de chat nuevo y elimina la
+% instancia desactualizada anterior de la lista, vacía la lista logged
+% user. En caso contrario retorna falso.
+
 systemLogout(System, NewSystem):-
     \+ vacioLoggedUser(System),
     getSystemLoggedUser(System, UserActualizado),
@@ -173,7 +192,14 @@ systemLogout(System, NewSystem):-
 % getOpChatbotCodeLink/2, getOpInitialFlowLink/2,
 % cambiarFlowCodeChatbot/3, getChatbotFlows/2, actualizarChatbots/4,
 % getUserName/2, actualizarNuevoSystem/5.
-%
+% Predicado que permite interactuar con un Chatbot, recibe un sistema y
+% es dirigido a su chatbot inicial, luego el chatbot redirige al flow
+% inicial, en donde buscamos el mensaje dado en las opciones del flow,
+% si existe toma los links de la opcion que cambiarán cual será el
+% chatbot inicial del sistema y flow inicial de ese chatbot. En caso de
+% no encontrar el mensaje, si donde redirigen los initialCodeLinks del
+% sistema no se encuentran o los Links de la opcion no existen entonces
+% retorna false.
 %
 systemTalkRec(System, Msg, NewSystem):-
     \+ vacioLoggedUser(System), %Tiene que haber alguien logeado en el system
@@ -198,13 +224,65 @@ systemTalkRec(System, Msg, NewSystem):-
     actualizarNuevoSystem(System, CBLinkNew, User, ChatHistory, ChatbotsActualizados, NewSystem).
 
 
+%RF 13: TDA system - otro
+% Dom: System (list) X Username (string) X ChatHistory (string)
+% Meta Primaria: systemSynthesis/3
+% Meta Secundaria: vacioLoggedUser/1, getSystemUsers/2, encontrarUser/3,
+% getUserChatHistory/2, vacioChatHistory/2,
+% \+vacioLoggedUser/1, getSystemLoggedUser/1.
+% Predicado que muestra en consola el Historial de Chat de un usuario
+% dado, primero busca si ese usuario está logeado, ya que será el
+% historial más actualizado, si no está lo busca en la lista de usuarios
+% y muestra ese historial, en caso que tampoco esté retorna false.
+%
+systemSynthesis(System, Username, ChatHistory):-
+    (vacioLoggedUser(System), %Verifica que no haya nadie logeado
+    %Si no hay nadie logeado entonces el historial mas actualizado del usuario buscado estará en la lista de Users
+     getSystemUsers(System, Users),
+     encontrarUser(Username, Users, UserEncontrado),
+     getUserChatHistory(UserEncontrado, ChatHistoryRevisar),
+     vacioChatHistory(ChatHistoryRevisar, ChatHistory));
+    (\+vacioLoggedUser(System),
+     getSystemLoggedUser(System, User),
+     encontrarUser(Username, [User], UserEncontrado),
+     getUserChatHistory(UserEncontrado, ChatHistoryRevisar),
+     vacioChatHistory(ChatHistoryRevisar, ChatHistory)).
+
+
+%RF 14: TDA system - otro
+% Dom: System (list) X MaxInteractions (int) X Seed (int) X NewSystem(list)
+% Meta Principal: systemSimulate/4
+% Meta Secondaria: MaxInteractions =:= 0, NewSystem = System,
+% number_chars/2, systemTalkRec/3, myRandom/2, MaxInteractionsNueva is
+% MaxInteractions - 1, systemSimulate/4.
+% Predicado que simula una conversacion con un chatbot dentro de un
+% sistema con alguien logeado, la cantidad de veces que el usuario
+% interactúa con el sistema es dado por MaxInteractions y lo que se
+% pregunta en cada interacción es dado por los numeros de Seed.
+
+
+systemSimulate(System, MaxInteractions, Seed, NewSystem):-
+    %Caso para terminar el ciclo
+    (MaxInteractions =:= 0,
+    NewSystem = System);
+    (number_chars(Seed, [PrimerDigitoStr|_]),
+     systemTalkRec(System, PrimerDigitoStr, SystemActualizado),
+     myRandom(Seed,SeedNueva),
+     MaxInteractionsNueva is MaxInteractions - 1,
+     systemSimulate(SystemActualizado, MaxInteractionsNueva, SeedNueva, NewSystem));
+    %En caso de que el sistema no encuentre un resultado para el system desde la seed entonces se llama de nuevo pero con una seed nueva, sin contar la iteracion hecha
+    (myRandom(Seed,SeedNueva),
+    systemSimulate(System, MaxInteractions, SeedNueva, NewSystem)).
+
+
+
 
 
 %Añadir eliminacion de duplicados y documentacion
 % set_prolog_flag(answer_write_options,[max_depth(0)]),option(1,"1-viajar",2,1, ["viajar", "turistear", "conocer"],O1),option(2, "2 - estudiar",4, 3, ["aprender", "perfeccionarme"], O2),flow(1,"flujo 1:mensaje de prueba", [O1], F1), flowAddOption(F1, O2, F2),flow(2, "Flujo 1: mensaje de prueba", [ ], F3),chatbot(1, "chatbot", "Prueba1", 1, [F1], CB1), chatbotAddFlow(CB1, F3, CB2),chatbot(2, "chatbot Viajes", "Prueba2", 1, [F2], CB3),system("Sistema1", 1,[CB2], S1),systemAddChatbot(S1, CB3, S2), systemAddUser(S2, "user0", S3), systemAddUser(S3, "user1", S4),systemLogin(S3, "user1", S5), systemLogout(S5,S6).
 %
 %
-%
+%set_prolog_flag(answer_write_options,[max_depth(0)]),option(1,"1-viajar",2,1, ["viajar", "turistear", "conocer"],O1),option(2, "2-estudiar",4, 3, ["aprender", "perfeccionarme"], O2),flow(1,"flujo 1:mensaje de prueba", [O1], F1), flowAddOption(F1, O2, F2),flow(2, "Flujo 1: mensaje de prueba", [ ], F3),chatbot(1, "chatbot", "Prueba1", 1, [F2], CB1), chatbotAddFlow(CB1, F3, CB2),chatbot(2, "chatbot Viajes", "Prueba2", 1, [F2], CB3),system("Sistema1", 1,[CB2], S1),systemAddChatbot(S1, CB3, S2), systemAddUser(S2, "user0", S3), systemAddUser(S3, "user1", S4),systemLogin(S4, "user1", S5), systemLogout(S5,S6),systemTalkRec(S5, "Turistear", S7),systemLogout(S7,S8),systemSynthesis(S8, "user0", Str), systemSimulate(S5, 1, 225, S10).
 %
 %
 % set_prolog_flag(answer_write_options,[max_depth(0)]),option(1,"1-viajar",2,1, ["viajar", "turistear", "conocer"],O1),option(2, "2-estudiar",4, 3, ["aprender", "perfeccionarme"], O2),flow(1,"flujo 1:mensaje de prueba", [O1], F1), flowAddOption(F1, O2, F2),flow(2, "Flujo 1: mensaje de prueba", [ ], F3),chatbot(1, "chatbot", "Prueba1", 1, [F2], CB1), chatbotAddFlow(CB1, F3, CB2),chatbot(2, "chatbot Viajes", "Prueba2", 1, [F2], CB3),system("Sistema1", 1,[CB2], S1),systemAddChatbot(S1, CB3, S2), systemAddUser(S2, "user0", S3), systemAddUser(S3, "user1", S4),systemLogin(S4, "user1", S5), systemLogout(S5,S6),systemTalkRec(S5, "Turistear", S7).
