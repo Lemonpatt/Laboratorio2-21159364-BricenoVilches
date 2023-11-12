@@ -182,7 +182,7 @@ systemLogout(System, NewSystem):-
     getSystemFechaCreacion(System,FechaCreacion),
     NewSystem = [Name, CBLink, UsersActualizada, [], FechaCreacion, Chatbots].
 
-%RF 12: TDA system - otro
+%RF 12: TDA system - modificador
 % Dom: System (list) X Message (string) X NewSystem (list)
 % Meta Principal: systemTalkRec/3
 % Meta Secundaria:\+vacioLoggedUser/2, getSystemLoggedUser/2,
@@ -202,7 +202,7 @@ systemLogout(System, NewSystem):-
 % retorna false.
 %
 systemTalkRec(System, Msg, NewSystem):-
-    \+ vacioLoggedUser(System), %Tiene que haber alguien logeado en el system
+    (\+vacioLoggedUser(System), %Tiene que haber alguien logeado en el system
     getSystemLoggedUser(System, LoggedUser),
     getSystemInitialCBLink(System, CBLink),
     getSystemChatbots(System, Chatbots),
@@ -221,7 +221,23 @@ systemTalkRec(System, Msg, NewSystem):-
     encontrarFlow(InitialFlowCodeLink, FlowsARevisar, _), %Revisa que el nuevo Chatbot tenga el Flow al cual ahora se dirige
     actualizarChatbots(ChatbotNuevo, Chatbots, [], ChatbotsActualizados),
     getUserName(LoggedUser, User),
-    actualizarNuevoSystem(System, CBLinkNew, User, ChatHistory, ChatbotsActualizados, NewSystem).
+    actualizarNuevoSystem(System, CBLinkNew, User, ChatHistory, ChatbotsActualizados, NewSystem));
+
+    %En caso de que el mensaje no se encuentre en las opciones
+    (\+vacioLoggedUser(System), %Tiene que haber alguien logeado en el system
+    getSystemLoggedUser(System, LoggedUser),
+    getSystemInitialCBLink(System, CBLink),
+    getSystemChatbots(System, Chatbots),
+    encontrarChatbot(CBLink, Chatbots, ChatbotEncontrado),
+    getChatbotStartFlowId(ChatbotEncontrado, InitialFlowId),
+    getChatbotFlows(ChatbotEncontrado, Flows),
+    encontrarFlow(InitialFlowId, Flows, FlowEncontrado),
+    getFlowOptions(FlowEncontrado, Options),
+    \+encontrarMsgOp(Msg,Options, _),
+    crearChatHistory(LoggedUser, Msg, ChatbotEncontrado, FlowEncontrado, ChatHistory),
+    getUserName(LoggedUser, User),
+    actualizarNuevoSystem(System, CBLink, User, ChatHistory, Chatbots, NewSystem)
+).
 
 
 %RF 13: TDA system - otro
@@ -236,25 +252,26 @@ systemTalkRec(System, Msg, NewSystem):-
 % y muestra ese historial, en caso que tampoco esté retorna false.
 %
 systemSynthesis(System, Username, ChatHistory):-
-    (vacioLoggedUser(System), %Verifica que no haya nadie logeado
-    %Si no hay nadie logeado entonces el historial mas actualizado del usuario buscado estará en la lista de Users
-     getSystemUsers(System, Users),
-     encontrarUser(Username, Users, UserEncontrado),
-     getUserChatHistory(UserEncontrado, ChatHistoryRevisar),
-     vacioChatHistory(ChatHistoryRevisar, ChatHistory));
     (\+vacioLoggedUser(System),
      getSystemLoggedUser(System, User),
      encontrarUser(Username, [User], UserEncontrado),
      getUserChatHistory(UserEncontrado, ChatHistoryRevisar),
+     vacioChatHistory(ChatHistoryRevisar, ChatHistory));
+        (%Si no esta el usuario logeado entonces el historial mas actualizado del usuario buscado estará en la lista de Users
+     getSystemUsers(System, Users),
+     encontrarUser(Username, Users, UserEncontrado),
+     getUserChatHistory(UserEncontrado, ChatHistoryRevisar),
      vacioChatHistory(ChatHistoryRevisar, ChatHistory)).
 
 
-%RF 14: TDA system - otro
+
+%RF 14: TDA system - modificador
 % Dom: System (list) X MaxInteractions (int) X Seed (int) X NewSystem(list)
 % Meta Principal: systemSimulate/4
 % Meta Secondaria: MaxInteractions =:= 0, NewSystem = System,
 % number_chars/2, systemTalkRec/3, myRandom/2, MaxInteractionsNueva is
-% MaxInteractions - 1, systemSimulate/4.
+% MaxInteractions - 1, systemSimulate/4, vacioLoggedUser/1, concat/3,
+% systemAddUser/3, systemLogin/3.
 % Predicado que simula una conversacion con un chatbot dentro de un
 % sistema con alguien logeado, la cantidad de veces que el usuario
 % interactúa con el sistema es dado por MaxInteractions y lo que se
@@ -264,14 +281,29 @@ systemSynthesis(System, Username, ChatHistory):-
 systemSimulate(System, MaxInteractions, Seed, NewSystem):-
     %Caso para terminar el ciclo
     (MaxInteractions =:= 0,
-    NewSystem = System);
-    (number_chars(Seed, [PrimerDigitoStr|_]),
+     systemLogout(System, SystemFinal),
+     %Como se acaba la simulación se tomó en cuenta que el usuario se deslogea
+    NewSystem = SystemFinal);
+    (\+vacioLoggedUser(System),
+     number_chars(Seed, [PrimerDigitoStr|_]),
      systemTalkRec(System, PrimerDigitoStr, SystemActualizado),
      myRandom(Seed,SeedNueva),
      MaxInteractionsNueva is MaxInteractions - 1,
      systemSimulate(SystemActualizado, MaxInteractionsNueva, SeedNueva, NewSystem));
+    %Aqui se realiza el caso en que no haya nadie logeado en el sistema, por lo tanto se crea un usuario solo para la emulación
+    (vacioLoggedUser(System),
+     number_chars(Seed, [PrimerDigitoStr|_]),
+     concat("userSimulado", Seed, AñadirUser),
+     systemAddUser(System, AñadirUser, System1),
+     systemLogin(System1, AñadirUser, System2),
+     number_chars(Seed, [PrimerDigitoStr|_]),
+     systemTalkRec(System2, PrimerDigitoStr, SystemActualizado),
+     myRandom(Seed,SeedNueva),
+     MaxInteractionsNueva is MaxInteractions - 1,
+     systemSimulate(SystemActualizado, MaxInteractionsNueva, SeedNueva, NewSystem));
     %En caso de que el sistema no encuentre un resultado para el system desde la seed entonces se llama de nuevo pero con una seed nueva, sin contar la iteracion hecha
-    (myRandom(Seed,SeedNueva),
+    (\+vacioLoggedUser(System),
+     myRandom(Seed,SeedNueva),
     systemSimulate(System, MaxInteractions, SeedNueva, NewSystem)).
 
 
