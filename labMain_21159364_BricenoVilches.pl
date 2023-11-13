@@ -1,10 +1,17 @@
 
+
+% RF 1: Aquí se ven los 6 TDAs pedidos, que han sido creados y añadidos
+% para su uso en un Código principal, cada uno de estos TDAs está
+% separado por sus capas para cada predicado y estos solo contienen los
+% necesarios para la implementación del laboratorio.
+
 :- use_module(tdaOption_21159364_BricenoVilches).
 :- use_module(tdaFlow_21159364_BricenoVilches).
 :- use_module(tdaChatbot_21159364_BricenoVilches).
 :- use_module(tdaSystem_21159364_BricenoVilches).
 :- use_module(tdaUser_21159364_BricenoVilches).
 :- use_module(tdaChatHistory_21159364_BricenoVilches).
+
 
 %RF 2: TDA Option - constructor
 % Dom: Code (int) X Message (string) X ChatbotCodeLink (int) X
@@ -33,14 +40,15 @@ flow(Id, NameMessage, OptionsBase, [Id, NameMessage, OptionsNoDuplicados]):-
 %RF 4: TDA Flow - modificador
 % Dom: Flow (list) X Option (list) X NewFlow (list)
 % Meta Principal: flowAddOption/3
-% Meta Secundaria: getFlowOptions/2,verificarOpRepetidas/4,getFlowMsg/2,getFlowId/2,
+% Meta Secundaria: getFlowOptions/2 append/3,verificarOpRepetidas/4,getFlowMsg/2,getFlowId/2,
 % NewFlow=[Id,Msg,OptionsNoDuplicados]
-% Predicado que añade una opcion nueva a un flujo, retorna falso si la Id
-% de la opción dada ya se encuentra en el Flow
+% Predicado que añade una opcion nueva a un flujo, retorna falso si la
+% Id de la opción dada ya se encuentra en el Flow
 
 flowAddOption(Flow, Option, NewFlow):-
     getFlowOptions(Flow, Options),
-    verificarOpRepetidas([Option|Options], [], [], OptionsNoDuplicados),
+    append(Options, [Option], Options1),
+    verificarOpRepetidas(Options1, [], [], OptionsNoDuplicados),
     getFlowMsg(Flow, Msg),
     getFlowId(Flow, Id),
     NewFlow = [Id, Msg, OptionsNoDuplicados].
@@ -60,7 +68,7 @@ chatbot(ChatbotId, Name, WelcomeMessage,StartFlowId,FlowsBase, [ChatbotId, Name,
 %RF 6: TDA chatbot - modificador
 % Dom: Chatbot (list) X Flow (list) X NewChatbot (list)
 % Meta Principal: chatbotAddFlow/3
-% Meta Secundaria: getChatbotFlow/2, verificarFlowsRepetidos/4,
+% Meta Secundaria: getChatbotFlow/2,append/3 verificarFlowsRepetidos/4,
 % getChatbotId/2, getChatbotName/2, getChatbotMsg/2,
 % getChatbotStartFlowId/2, NewChatbot = [ChatbotId, Name,
 % WelcomeMessage, StartFlowId,FlowsNoDuplicados]
@@ -69,8 +77,9 @@ chatbot(ChatbotId, Name, WelcomeMessage,StartFlowId,FlowsBase, [ChatbotId, Name,
 
 chatbotAddFlow(Chatbot, Flow, NewChatbot) :-
     getChatbotFlows(Chatbot, Flows),
+    append(Flows, [Flow], Flows1),
     %Añade al final de la lista de flows con recursión de cola:
-    verificarFlowsRepetidos([Flow|Flows], [], [], FlowsNoDuplicados), %Verifica que no se repita la Id de flows, si se repite el resultado es false.
+    verificarFlowsRepetidos(Flows1, [], [], FlowsNoDuplicados), %Verifica que no se repita la Id de flows, si se repite el resultado es false.
     getChatbotId(Chatbot, ChatbotId),
     getChatbotName(Chatbot, Name),
     getChatbotMsg(Chatbot, WelcomeMessage),
@@ -105,7 +114,8 @@ system(Name, InitialChatbotCodeLink, ChatbotsBase, [Name, InitialChatbotCodeLink
 
 systemAddChatbot(System, Chatbot, NewSystem) :-
     getSystemChatbots(System, Chatbots),
-    verificarChatbotsRepetidos([Chatbot | Chatbots], [], [], ChatbotsNoDuplicados),
+    append(Chatbots, [Chatbot], Chatbots1),
+    verificarChatbotsRepetidos(Chatbots1, [], [], ChatbotsNoDuplicados),
     getSystemName(System, Name),
     getSystemInitialCBLink(System, CBLink),
     getSystemUsers(System, Users),
@@ -281,9 +291,7 @@ systemSynthesis(System, Username, ChatHistory):-
 systemSimulate(System, MaxInteractions, Seed, NewSystem):-
     %Caso para terminar el ciclo
     (MaxInteractions =:= 0,
-     systemLogout(System, SystemFinal),
-     %Como se acaba la simulación se tomó en cuenta que el usuario se deslogea
-    NewSystem = SystemFinal);
+    NewSystem = System);
     (\+vacioLoggedUser(System),
      number_chars(Seed, [PrimerDigitoStr|_]),
      systemTalkRec(System, PrimerDigitoStr, SystemActualizado),
@@ -301,25 +309,10 @@ systemSimulate(System, MaxInteractions, Seed, NewSystem):-
      myRandom(Seed,SeedNueva),
      MaxInteractionsNueva is MaxInteractions - 1,
      systemSimulate(SystemActualizado, MaxInteractionsNueva, SeedNueva, NewSystem));
-    %En caso de que el sistema no encuentre un resultado para el system desde la seed entonces se llama de nuevo pero con una seed nueva, sin contar la iteracion hecha
-    (\+vacioLoggedUser(System),
-     myRandom(Seed,SeedNueva),
+    (myRandom(Seed,SeedNueva),
     systemSimulate(System, MaxInteractions, SeedNueva, NewSystem)).
 
 
-
-
-
-%Añadir eliminacion de duplicados y documentacion
-% set_prolog_flag(answer_write_options,[max_depth(0)]),option(1,"1-viajar",2,1, ["viajar", "turistear", "conocer"],O1),option(2, "2 - estudiar",4, 3, ["aprender", "perfeccionarme"], O2),flow(1,"flujo 1:mensaje de prueba", [O1], F1), flowAddOption(F1, O2, F2),flow(2, "Flujo 1: mensaje de prueba", [ ], F3),chatbot(1, "chatbot", "Prueba1", 1, [F1], CB1), chatbotAddFlow(CB1, F3, CB2),chatbot(2, "chatbot Viajes", "Prueba2", 1, [F2], CB3),system("Sistema1", 1,[CB2], S1),systemAddChatbot(S1, CB3, S2), systemAddUser(S2, "user0", S3), systemAddUser(S3, "user1", S4),systemLogin(S3, "user1", S5), systemLogout(S5,S6).
-%
-%
-%set_prolog_flag(answer_write_options,[max_depth(0)]),option(1,"1-viajar",2,1, ["viajar", "turistear", "conocer"],O1),option(2, "2-estudiar",4, 3, ["aprender", "perfeccionarme"], O2),flow(1,"flujo 1:mensaje de prueba", [O1], F1), flowAddOption(F1, O2, F2),flow(2, "Flujo 1: mensaje de prueba", [ ], F3),chatbot(1, "chatbot", "Prueba1", 1, [F2], CB1), chatbotAddFlow(CB1, F3, CB2),chatbot(2, "chatbot Viajes", "Prueba2", 1, [F2], CB3),system("Sistema1", 1,[CB2], S1),systemAddChatbot(S1, CB3, S2), systemAddUser(S2, "user0", S3), systemAddUser(S3, "user1", S4),systemLogin(S4, "user1", S5), systemLogout(S5,S6),systemTalkRec(S5, "Turistear", S7),systemLogout(S7,S8),systemSynthesis(S8, "user0", Str), systemSimulate(S5, 1, 225, S10).
-%
-%
-% set_prolog_flag(answer_write_options,[max_depth(0)]),option(1,"1-viajar",2,1, ["viajar", "turistear", "conocer"],O1),option(2, "2-estudiar",4, 3, ["aprender", "perfeccionarme"], O2),flow(1,"flujo 1:mensaje de prueba", [O1], F1), flowAddOption(F1, O2, F2),flow(2, "Flujo 1: mensaje de prueba", [ ], F3),chatbot(1, "chatbot", "Prueba1", 1, [F2], CB1), chatbotAddFlow(CB1, F3, CB2),chatbot(2, "chatbot Viajes", "Prueba2", 1, [F2], CB3),system("Sistema1", 1,[CB2], S1),systemAddChatbot(S1, CB3, S2), systemAddUser(S2, "user0", S3), systemAddUser(S3, "user1", S4),systemLogin(S4, "user1", S5), systemLogout(S5,S6),systemTalkRec(S5, "Turistear", S7).
-
-%Funciones auxiliares que tendrán su propio archivo.
 
 
 

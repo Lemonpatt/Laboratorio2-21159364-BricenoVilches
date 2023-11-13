@@ -32,7 +32,8 @@ getFlowMsg([_,Msg,_], Msg).
 
 % Dom: Flows (list) X AccIdFlow (list) X AccFlows (list) X ListaSalida
 % (list)
-% Meta Principal: verificarOpRepetidas/4 Meta Secundaria: 1) NA.
+% Meta Principal: verificarOpRepetidas/4
+% Meta Secundaria: 1) NA.
 % 2) getFlowId/2, \+member/2, append/3, verificarFlowsRepetidos/4.
 % Verifica que una lista de flows no tenga repetido ninguno en base a
 % sus ID, si hay uno repetido retorna false.
@@ -47,7 +48,6 @@ verificarFlowsRepetidos([FlowParaAgregar | RestoFlows], AccIdFlow, AccFlows, Lis
     \+ member(Id, AccIdFlow),
     append(AccFlows, [FlowParaAgregar], AccFlowsNew),
     verificarFlowsRepetidos(RestoFlows, [Id | AccIdFlow], AccFlowsNew, ListaSalida).
-
 
 %Dom: InitialFlowId (int) X Flows (list) X FlowEncontrado (list)
 %Meta Principal: encontrarFlow/3
